@@ -1,0 +1,367 @@
+<?php
+ob_start();
+class WebservicesController extends AppController{
+	
+/*-----------------------------function for registration---------------------------------*/
+	function registration()
+	{
+		//echo "helloaxs";die;
+		$this->loadModel('User');
+		if($this->request->is('get'))
+		{ //echo "hello";die;
+			if(!empty($_GET['email']))
+			{
+				$user_email = $_GET['email'];
+			}else{
+				$response['message']='Please Enter the email.';
+				echo json_encode($response); die;
+			}
+			if(!empty($_GET['deviceID']))
+			{
+				$user_device_id = $_GET['deviceID'];
+			}else{
+				$response['message']='Please send the deviceID.';
+				echo json_encode($response); die;
+			}
+				
+			if(!empty($_GET['password']))
+			{
+				$user_password = $_GET['password'];
+			}
+			
+			if(!empty($_GET['facebookLoginFlag']) && isset($_GET['facebookLoginFlag']))
+			{
+				$facebookLoginFlag = $_GET['facebookLoginFlag'];
+			}else{
+				$response['message']='please send the facebook flag.';
+				echo json_encode($response); die;
+			}
+			
+			$data['User']['email'] = $user_email;
+			$data['User']['deviceid'] = $user_device_id;
+			$data['User']['facebookloginflag']= $facebookLoginFlag;
+			if(!empty($user_password)){
+				$data['User']['password']=md5($user_password);
+			}else{ 
+				$data['User']['password']='';
+			}
+				
+			$userdata=$this->User->find('all',array('conditions'=>array('User.email'=>$user_email)));
+			if(empty($userdata))
+			{
+				if($this->User->save($data)){
+					$last_id=$this->User->getLastInsertId();
+					$user_info=$this->User->find('first',array('conditions'=>array('User.userId'=>$last_id),'fields'=>array('userId','email','deviceid','facebookloginflag')));
+					$response['successful']='Yes';
+					$response['statusCode']=1;
+					$response['userId']=$user_info['User']['userId'];
+					$response['deviceID']=$user_info['User']['deviceid'];
+					$response['facebookLoginFlag']=$user_info['User']['facebookloginflag'];
+					$response['email']=$user_info['User']['email'];
+					echo json_encode($response); die;
+				}else{
+					$response['successful']='No';
+					$response['statusCode']=0;
+					$response['message']='please fill the all values.';
+					echo json_encode($response); die;
+				}
+			}else{
+				$response['successful']='No';
+				$response['statusCode']=0;
+				$response['message']='Email id already exists.';
+				echo json_encode($response); die;
+			}
+		}
+					
+		
+	}
+	
+/*-----------------------------function for login---------------------------------*/
+
+	function login()
+	{
+		$this->loadModel('User');
+		if($this->request->is('get'))
+		{
+			if(!empty($_GET['email']))
+			{
+				$user_email = $_GET['email'];
+			}else{
+				$response['message']='Please Enter the email.';
+				echo json_encode($response); die;
+			}
+			if(!empty($_GET['deviceID']))
+			{
+				$user_device_id = $_GET['deviceID'];
+			}else{
+				$response['message']='Please send the deviceID.';
+				echo json_encode($response); die;
+			}
+				
+			if(!empty($_GET['password']))
+			{
+				$user_password = $_GET['password'];
+			}else{
+				$response['message']='Please Enter the password.';
+				echo json_encode($response); die;
+			}
+			
+			if(!empty($_GET['facebookLoginFlag']) && isset($_GET['facebookLoginFlag']))
+			{
+				$facebookLoginFlag = $_GET['facebookLoginFlag'];
+			}else{
+				$response['message']='please send the facebook flag.';
+				echo json_encode($response); die;
+			}
+			
+			$user_info=$this->User->find('first',array('conditions'=>array('email'=>$user_email,'password'=>md5($user_password)),'fields'=>array('userId','email','deviceid','facebookloginflag')));
+		  
+		    if(trim($facebookLoginFlag) == 'yes')
+			{
+				if(!empty($user_email)){
+					$response['message']='User have sucessfully logged In.';
+					$response['successful']='Yes';
+					$response['statusCode']=1;
+					$response['userId']=$user_info['User']['userId'];
+					$response['deviceID']=$user_info['User']['deviceid'];
+					$response['facebookLoginFlag']=$user_info['User']['facebookloginflag'];
+					$response['email']=$user_info['User']['email'];
+					
+					echo json_encode($response); die;
+				}
+			}else{
+				if(!empty($user_info))
+				{
+					$response['message']='User have sucessfully logged In.';
+					$response['successful']='Yes';
+					$response['statusCode']=1;
+					$response['userId']=$user_info['User']['userId'];
+					$response['deviceID']=$user_info['User']['deviceid'];
+					$response['facebookLoginFlag']=$user_info['User']['facebookloginflag'];
+					$response['email']=$user_info['User']['email'];
+					echo json_encode($response); die;
+				}else{
+					$response['statusCode']=0;
+					$response['successful']='No';
+					$response['message']='please fill the valid email and password.';
+					echo json_encode($response); die;
+				}
+			}
+			
+		}
+					
+		
+	}
+ /*---------------------------------------function for meeting autentication -----------------------------------------------*/
+ 
+ function meeting_authentication()
+ {
+	$this->loadModel('Meeting');
+	$this->loadModel('UserHistory'); 
+	if($this->request->is('get'))
+	{
+		if(!empty($_GET['meetingCode']) && !empty($_GET['userId']))
+		{
+			$meeting_info=$this->Meeting->find('first',array('conditions'=>array('meetingcode'=>$_GET['meetingCode']),'recursive'=>2));
+			//$answer_list=$this->MeetingQuestion->find('all',array('conditions'=>array('MeetingQuestion.meeting_id'=>$meeting_info['Meeting']['id'])));
+			if(!empty($meeting_info))
+			{	
+				$data['UserHistory']['userid']=$_GET['userId'];
+				$data['UserHistory']['meetingcode']=$_GET['meetingCode'];
+				$this->UserHistory->save($data);
+				$response['statusCode']=1;
+				$response['meeting_information']=$meeting_info;
+				echo json_encode($response); die;
+				
+			}else{
+				$response['statusCode']=0;
+				$response['message']='Please Enter valid Meeting code .';
+				echo json_encode($response); die;
+			}
+		}
+	}
+ }
+ 
+ /*---------------------------------------function for Answer submision-----------------------------------------------*/
+ 
+ function answer_submission()
+ {
+	$this->loadModel('ReceivedAnswer');
+	$this->loadModel('Meeting');
+	$this->loadModel('MeetingQuestion');
+	if($this->request->is('get'))
+	{
+		if(!empty($_GET['meetingCode']) && !empty($_GET['userId']) && !empty($_GET['questionId']) && !empty($_GET['selcetedOptionId']))
+		{
+				$data['ReceivedAnswer']['meetingcode'] = $_GET['meetingCode'];
+				$data['ReceivedAnswer']['userid'] = $_GET['userId'];
+				$data['ReceivedAnswer']['question_id'] = $_GET['questionId'];
+				$data['ReceivedAnswer']['answer_id'] = $_GET['selcetedOptionId'];
+				$this->ReceivedAnswer->save($data);
+				$question_info= $this->MeetingQuestion->find('first',array('conditions'=>array('MeetingQuestion.id'=>$_GET['questionId'],'MeetingQuestion.answer_id'=>$_GET['selcetedOptionId'])));
+				if(!empty($question_info))
+				{
+					$response['statusCode']=1;
+					$response['question_data']=$question_info;
+					echo json_encode($response); die;
+				}else{
+					$response['statusCode']=0;
+					$response['message']='you have choose wrong answer please try again .';
+					echo json_encode($response); die;
+				}
+				
+		}
+	}
+	 
+ }
+ 
+  /*---------------------------------------get a Question to Admin  -----------------------------------------------*/
+  
+  function get_to_question()
+  {
+	$this->loadModel('UserQuestion');
+	if($this->request->is('get'))
+	{
+		if(!empty($_GET['meetingCode']) && !empty($_GET['userId']) && !empty($_GET['questionAsked']))
+		{
+			$data['UserQuestion']['meetingcode'] = $_GET['meetingCode'];
+			$data['UserQuestion']['userid'] = $_GET['userId'];
+			$data['UserQuestion']['question_text'] = $_GET['questionAsked'];
+			$this->UserQuestion->save($data);
+			$userquestion_id=$this->UserQuestion->getLastInsertId();
+			$userquestion_data=$this->UserQuestion->find('first',array('conditions'=>array('UserQuestion.id'=>$userquestion_id)));
+			if(!empty($userquestion_data))
+			{
+				$response['statusCode']=1;
+				$response['userquestion_data']=$userquestion_data;
+				echo json_encode($response); die;
+			}else{
+				$response['statusCode']=0;
+				$response['message']='your question ha been submitted.';
+				echo json_encode($response); die;
+			}
+		}else{
+			$response['statusCode']=0;
+			$response['message']='please send the valid userid and meeting code.';
+			echo json_encode($response); die;
+		}
+	}  
+  }
+  
+ /*---------------------------------Meeting Code listing  attended till date---------------------------------------------*/
+  
+  function meeting_code_detail()
+  {
+	$this->loadModel('Meeting');
+	$this->loadModel('UserHistory');
+	if($this->request->is('get'))
+	{
+		if(!empty($_GET['userId']))
+		{
+			$user_id = $_GET['userId'];
+		}else{
+			$response['message']='Please send the User ID.';
+			echo json_encode($response); die;
+		}
+		$meeting_info = $this->UserHistory->find('first',array('conditions'=>array('UserHistory.userid'=>$user_id)));
+		
+		
+		if(!empty($meeting_info) && isset($meeting_info))
+		{
+			$meeting_history=$this->Meeting->find('first',array('conditions'=>array('Meeting.meetingcode'=>$meeting_info['UserHistory']['meetingcode']),'recursive'=>2));
+			$response['statusCode']=1;
+			$response['meeting_data']=$meeting_history;
+			echo json_encode($response); die;
+			
+		}else{
+			$response['statusCode']=0;
+			$response['message']='User has not attend any meeting';
+			echo json_encode($response); die;
+		}
+	}  
+  }
+  
+  /*--------------------------------Account details---------------------------------------------*/
+  
+  function account_details()
+  {
+    $this->loadModel('User');
+	if($this->request->is('get'))
+	{
+		if(!empty($_GET['userId']))
+		{
+			$user_id = $_GET['userId'];
+		}else{
+			$response['message']='Please send the User ID.';
+			echo json_encode($response); die;
+		}
+		$user_info=$this->User->find('first',array('conditions'=>array('User.id'=>$user_id),'fields'=>array('email','deviceid','facebookloginflag')));
+		if(!empty($user_info))
+		{
+			$response['statusCode']=1;
+			$response['user_data']=$user_info;
+			echo json_encode($response); die;
+		}else{
+			$response['message']='Please send the valid user ID this id not exist in our database.';
+			echo json_encode($response); die;
+		}
+	}
+	  
+  }
+  
+  /*--------------------------------change password---------------------------------------------*/
+  
+  function change_password()
+  {
+	 $this->loadModel('User');
+	 if($this->request->is('get'))
+	 {
+		 if(!empty($_GET['userEmail']))
+		{
+			$user_email = $_GET['userEmail'];
+		}else{
+			$response['message']='Please Enter the email.';
+			echo json_encode($response); die;
+		}
+		if(!empty($_GET['userEmail']))
+		{
+			$new_password = $this->RandomPasswordGenerator(6);	
+			$pass=md5($new_password);
+			$this->User->updateAll(array('User.password'=>"'".$pass."'"),array('User.email'=>$user_email));
+			$msg='Your password has sucessfuly changed you can login with this password.';
+			if(mail($new_password,"Your New Passowrd",$msg))
+			{
+				$response['statusCode']=1;
+				$response['Message']='User password has sucessfully send on registerd email id';
+				$response['user_new_password']=$new_password;
+				echo json_encode($response); die;
+			}else{
+			  $response['message']='email has not been sent';
+			   echo json_encode($response); die;
+			}
+			
+		}
+		  
+	 }
+	 die('Unauthorzed');
+  }
+  
+  /*-------------------------------Random password Genrator--------------------------------------*/
+  
+  function RandomPasswordGenerator($length=6)
+  {
+    		$string="";
+    		$pattern="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    		for($i=0; $i<$length; $i++)
+    		{
+    			  $string .=$pattern{rand(0,61)};
+    		}
+    	return $string;
+  } 
+	
+
+	
+ /*---------------------------------------------------end here controller-------------------------------------------*/
+}
+
+ ?>
